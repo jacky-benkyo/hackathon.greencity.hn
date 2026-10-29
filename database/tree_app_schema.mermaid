@@ -1,0 +1,54 @@
+erDiagram
+    AUTH_USERS ||--|| PROFILES : "id"
+    PROFILES ||--o{ MISSIONS : "user_id"
+    TREE_SPECIES ||--o{ TREES : "species_id"
+    TREES ||--o{ MISSIONS : "tree_id"
+    MISSIONS ||--o| CARE_DETAILS : "mission_id"
+    MISSIONS ||--o| REPORT_DETAILS : "mission_id"
+
+    AUTH_USERS {
+        uuid id PK
+        text email
+        text phone
+    }
+    PROFILES {
+        uuid id PK
+        text name
+        text user_type "resident or student"
+        text phone
+        timestamptz created_at
+    }
+    TREE_SPECIES {
+        int id PK
+        text name
+    }
+    TREES {
+        uuid id PK
+        text qr_code_id UK
+        int species_id FK
+        numeric lat
+        numeric lng
+        int plant_year
+        timestamptz created_at
+    }
+    MISSIONS {
+        bigint id PK
+        text mission_code UK "1=plant 3=care 5=report"
+        text type "plant, care, report"
+        uuid user_id FK
+        uuid tree_id FK
+        timestamptz created_at
+        numeric lat
+        numeric lng
+        text photo_path
+    }
+    CARE_DETAILS {
+        bigint mission_id PK, FK
+        smallint moisture_level "0-100"
+    }
+    REPORT_DETAILS {
+        bigint mission_id PK, FK
+        text category
+        text description
+        text status "open, in_progress, resolved"
+    }

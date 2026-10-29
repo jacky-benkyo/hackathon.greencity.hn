@@ -1,0 +1,237 @@
+// ==========================================
+// 3D Printable Plant Moisture Sensor Case (GrünHeld Edition v4)
+// Updated Specifications:
+// 1. MCU: Old version Joy-IT SBC-NodeMCU-ESP32 (48 x 26 x 11.5 mm)
+// 2. 4 Mounting Pillars: Adjusted to fit 48 x 26 mm board (height = 8.5 mm)
+// 3. Sensor Neck Width: Explicitly set to 29.0 mm (2.9 cm)
+// 4. Sensor Hole Width: >= 20.5 mm (2.05 cm) -> Slot = 23.5mm, Cavity = 21.0mm
+// 5. Inner Box Height (without lid): 45.0 mm (>= 4.3 cm)
+// ==========================================
+
+$fn = 60; // Corner smoothness (circle resolution)
+
+// --- Main enclosure dimensions ---
+box_l = 70.0;        // Enclosure length (mm)
+box_w = 40.0;        // Enclosure width (mm) - narrowed back to 40mm to suit the 26mm-wide old-version ESP32
+inner_h = 45.0;      // Inner clear height without lid = 45mm (4.5cm)
+wall = 2.4;          // Outer wall and floor thickness (mm)
+body_h = inner_h + wall; // Total outer height of main body (47.4mm)
+lid_h = 3.2;         // Top lid thickness (mm)
+corner_r = 7.0;      // Outer corner radius (mm)
+
+// --- [Key update 1] Old-version Joy-IT NodeMCU ESP32 (48 x 26 x 11.5 mm) ---
+esp_l = 48.4;        // 48.0mm + 0.4mm print tolerance
+esp_w = 26.4;        // 26.0mm + 0.4mm print tolerance
+esp_h = 11.5;        // Total board thickness 11.5mm
+esp_hole_dist_l = 43.0; // Center-to-center distance of the four corner standoffs along the long side (matches 48mm board length)
+esp_hole_dist_w = 21.0; // Center-to-center distance of the four corner standoffs along the short side (matches 26mm board width)
+standoff_h = 8.5;    // Height of the 4 mounting standoffs (8.5mm)
+
+// --- [Key update 2 & 3] HW-390 soil sensor neck (2.9cm) and insertion slot (>= 2.05cm) ---
+neck_l = 29.0;       // Neck outer width = 29.0mm (2.9 cm)
+neck_w = 14.0;       // Neck outer thickness (mm)
+neck_h = 20.0;       // Neck length (mm)
+
+sensor_w = 23.5;     // PCB through-slot width = 23.5mm (> 2.05cm requirement, suits HW-390)
+sensor_pcb_t = 2.2;  // PCB thickness slot (1.6mm board + tolerance)
+sensor_comp_w = 21.0;// Component and connector through-hole width = 21.0mm (2.1cm, ensures >= 2.05cm)
+sensor_comp_t = 9.0; // Component and connector channel thickness (mm)
+
+// Show both the main body and the top lid
+main_body();
+translate([0, box_w + 18, 0]) top_cover();
+
+// ==========================================
+// Module 1: Main body (Main Body + 2.9cm Neck)
+// ==========================================
+module main_body() {
+    difference() {
+        union() {
+            // 1. Upper main enclosure (70 x 40 mm, inner clear height 45mm)
+            rounded_box(box_l, box_w, body_h, corner_r);
+            
+            // 2. Bottom sensor mounting neck (outer width 29.0mm = 2.9cm, fully enclosed to protect components)
+            translate([0, 0, -neck_h])
+                rounded_box(neck_l, neck_w, neck_h + 2, 3.5);
+        }
+        
+        // Hollow out the main interior (cut upward from z = wall by inner_h = 45mm)
+        translate([0, 0, wall])
+            rounded_box(box_l - wall*2, box_w - wall*2, inner_h + 1, corner_r - wall);
+            
+        // Left-side USB opening (height automatically aligned above the ESP32 sitting on the 8.5mm standoffs)
+        translate([-box_l/2 - 1, 0, wall + standoff_h + 2.0])
+            rotate([0, 90, 0])
+            hull() {
+                translate([0, -3.8, 0]) cylinder(d=5.0, h=wall+4);
+                translate([0,  3.8, 0]) cylinder(d=5.0, h=wall+4);
+            }
+            
+        // HW-390 through-insertion slot (ensures width >= 20.5mm / 2.05cm)
+        // (a) Main PCB slot through the enclosure floor and neck (23.5mm wide)
+        translate([0, 0, (wall - neck_h)/2])
+            cube([sensor_w, sensor_pcb_t, neck_h + wall + 6], center=true);
+            
+        // (b) Top component and connector protection cavity through the enclosure floor (21.0mm = 2.1cm wide, does not break through the very bottom of the neck, to protect components)
+        translate([0, 2.2, -neck_h/2 + wall + 2])
+            cube([sensor_comp_w, sensor_comp_t, neck_h], center=true);
+            
+        // (c) Funnel-shaped chamfer on the inner side of the floor, making it easier to align and insert the sensor from inside the box
+        translate([0, 0, wall])
+            hull() {
+                cube([sensor_w + 3, sensor_pcb_t + 3, 0.1], center=true);
+                translate([0, 0, -2.5])
+                    cube([sensor_w, sensor_pcb_t, 0.1], center=true);
+            }
+    }
+    
+    // Stopper ledge at the bottom inside the neck: supports both side edges of the sensor while keeping a >20.5mm through-opening in the middle
+    for (x = [-1, 1]) {
+        translate([x * (sensor_w/2 - 0.75), 0, -neck_h + 2])
+            cube([1.5, neck_w - 4, 2.0], center=true);
+    }
+    
+    // Diagonal lid screw bosses inside the box
+    lid_boss_pos = [
+        [ box_l/2 - wall - 3.5,  box_w/2 - wall - 3.5],
+        [-box_l/2 + wall + 3.5, -box_w/2 + wall - 3.5 + (3.5*2) - 7]
+    ];
+    for (p = [
+        [ box_l/2 - wall - 3.5,  box_w/2 - wall - 3.5],
+        [-box_l/2 + wall + 3.5, -box_w/2 + wall + 3.5]
+    ]) {
+        translate([p[0], p[1], wall])
+        difference() {
+            cylinder(d=7.5, h=inner_h);
+            translate([0, 0, inner_h - 15]) cylinder(d=2.6, h=16); // M3 screw hole
+        }
+    }
+    
+    // [Key update 1] Dedicated 4 standoffs for the old-version ESP32 (48 x 26 mm), 8.5mm tall
+    for (x = [-1, 1], y = [-1, 1]) {
+        translate([x * esp_hole_dist_l/2, y * esp_hole_dist_w/2, wall])
+        difference() {
+            cylinder(d=5.5, h=standoff_h);
+            cylinder(d=2.0, h=standoff_h + 1); // M2 self-tapping screw hole
+        }
+    }
+    
+    // Four-corner L-shaped locating cradle that precisely grips the outer frame of the 48 x 26 mm PCB
+    for (x = [-1, 1], y = [-1, 1]) {
+        translate([x * (esp_l/2 - 3), y * (esp_w/2 - 3), wall + (standoff_h + 2.5)/2])
+        difference() {
+            cube([8, 8, standoff_h + 2.5], center=true);
+            translate([-x * 1.2, -y * 1.2, 0])
+                cube([8, 8, standoff_h + 4], center=true);
+        }
+    }
+}
+
+// ==========================================
+// Module 2: Top cover (Top Cover - 70 x 40 mm)
+// ==========================================
+module top_cover() {
+    difference() {
+        union() {
+            // Lid main body
+            rounded_box(box_l, box_w, lid_h, corner_r);
+            // Inset locating lip
+            translate([0, 0, -2.0])
+                rounded_box(box_l - wall*2 - 0.5, box_w - wall*2 - 0.5, 2.0, corner_r - wall);
+        }
+        
+        // Hollow out the middle of the inset locating lip
+        translate([0, 0, -2.5])
+            rounded_box(box_l - wall*2 - 3.5, box_w - wall*2 - 3.5, 3, corner_r - wall - 1.5);
+            
+        // Diagonal countersunk screw holes (M3)
+        for (p = [
+            [ box_l/2 - wall - 3.5,  box_w/2 - wall - 3.5],
+            [-box_l/2 + wall + 3.5, -box_w/2 + wall + 3.5]
+        ]) {
+            translate([p[0], p[1], -3]) {
+                cylinder(d=3.4, h=10); // M3 through hole
+                translate([0, 0, lid_h + 1.2]) cylinder(d=6.2, h=3); // Countersink recess
+            }
+        }
+            
+        // Engraved surface logo, corrected GrünHeld version (0.8mm deep)
+        translate([0, 0, lid_h - 0.8])
+            grunheld_logo();
+    }
+}
+
+// ==========================================
+// Helper module: corrected GrünHeld logo
+// ==========================================
+module grunheld_logo() {
+    scale([0.82, 0.82, 1]) {
+        // 1. "GrünHeld" text
+        translate([0, -14.5, 0])
+            linear_extrude(height = 2)
+            text("GrünHeld", size = 7.2, font = "Arial:style=Bold", halign = "center", valign = "center");
+            
+        // 2. Shortened bottom arc hill (moved down 2mm toward the text, and does not touch the text)
+        translate([0, -3.8, 0])
+        intersection() {
+            difference() {
+                translate([0, -34, 0]) cylinder(r=34, h=2, $fn=100);
+                translate([0, -36.2, -0.5]) cylinder(r=34, h=3, $fn=100);
+            }
+            translate([0, -1.5, 1]) cube([25, 5, 4], center=true);
+        }
+        
+        // 3. Central humanoid tree trunk
+        translate([-2.5, 0.8, 0]) {
+            translate([0, 4.2, 0]) cylinder(r=2.0, h=2);
+            hull() {
+                translate([-0.5, -2.5, 0]) cylinder(r=1.5, h=2);
+                translate([-1.2, 0, 0]) cylinder(r=1.3, h=2);
+                translate([-6.5, 4.5, 0]) cylinder(r=0.4, h=2);
+            }
+            hull() {
+                translate([0.5, -2.5, 0]) cylinder(r=1.5, h=2);
+                translate([1.2, 0, 0]) cylinder(r=1.3, h=2);
+                translate([6.5, 4.5, 0]) cylinder(r=0.4, h=2);
+            }
+            hull() {
+                translate([0, 0, 0]) cylinder(r=1.8, h=2);
+                translate([0, -5.0, 0]) cylinder(r=2.1, h=2);
+            }
+            
+            // 4. Three leaves
+            translate([0, 12.2, 0]) scale([1, 1.25, 1]) leaf_shape(4.2);
+            translate([-7.5, 8.2, 0]) rotate([0, 0, 42]) scale([0.85, 1.1, 1]) leaf_shape(3.6);
+            translate([7.5, 8.2, 0]) rotate([0, 0, -42]) scale([0.85, 1.1, 1]) leaf_shape(3.6);
+        }
+        
+        // 5. City skyline silhouette and spire on the right
+        translate([6.8, -4.5, 0]) {
+            translate([0, -0.4, 1]) cube([11.5, 2.2, 2], center=true);
+            translate([-4.5, 0.8, 1]) cube([2.3, 2.8, 2], center=true);
+            translate([-1.8, 1.6, 1]) cube([2.5, 4.2, 2], center=true);
+            translate([1.2, 3.0, 1]) cube([2.8, 7.2, 2], center=true);
+            translate([1.2, 7.0, 1]) cube([1.6, 2.5, 2], center=true);
+            hull() {
+                translate([1.2, 8.0, 0]) cylinder(r=0.7, h=2);
+                translate([1.2, 11.5, 0]) cylinder(r=0.15, h=2);
+            }
+            translate([4.4, 2.0, 1]) cube([2.5, 5.2, 2], center=true);
+        }
+    }
+}
+
+module leaf_shape(r_size) {
+    intersection() {
+        translate([-r_size*0.7, 0, 0]) cylinder(r=r_size*1.4, h=2);
+        translate([ r_size*0.7, 0, 0]) cylinder(r=r_size*1.4, h=2);
+    }
+}
+
+module rounded_box(l, w, h, r) {
+    hull() {
+        for (x = [-l/2 + r, l/2 - r], y = [-w/2 + r, w/2 - r]) {
+            translate([x, y, 0]) cylinder(r=r, h=h);
+        }
+    }
+}
